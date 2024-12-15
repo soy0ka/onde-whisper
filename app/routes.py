@@ -131,8 +131,25 @@ def get_job_status(job_id):
 
 @api.route('/jobs', methods=['GET'])
 def get_all_jobs():
-    jobs = db.get_all_jobs()
-    return jsonify({
-        "status": "success",
-        "jobs": jobs if jobs else []
-    })
+    try:
+        page = int(request.args.get('page', 1))
+        per_page = int(request.args.get('per_page', 10))
+        
+        # 유효성 검사
+        if page < 1:
+            page = 1
+        if per_page < 1 or per_page > 100:
+            per_page = 10
+            
+        result = db.get_all_jobs(page=page, per_page=per_page)
+        
+        return jsonify({
+            "status": "success",
+            "data": result['jobs'],
+            "pagination": result['pagination']
+        })
+    except Exception as e:
+        return jsonify({
+            "status": "error",
+            "message": str(e)
+        }), 500

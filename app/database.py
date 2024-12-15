@@ -121,21 +121,42 @@ class Database:
             return job_dict
         return None
       
-    def get_all_jobs(self):
+    def get_all_jobs(self, page=1, per_page=10):
         conn = self.get_connection()
         c = conn.cursor()
-        c.execute('SELECT * FROM jobs')
+        
+        # 전체 작업 수 조회
+        c.execute('SELECT COUNT(*) as total FROM jobs')
+        total = c.fetchone()['total']
+        
+        # 페이지네이션 적용
+        offset = (page - 1) * per_page
+        c.execute('''
+            SELECT * FROM jobs 
+            ORDER BY created_at DESC 
+            LIMIT ? OFFSET ?
+        ''', (per_page, offset))
+        
         jobs = c.fetchall()
         conn.close()
         
         job_list = []
         for job in jobs:
             job_dict = dict(job)
-            # JSON 문자열로 저장된 result를 파이썬 객체로 변환
             if job_dict.get('result'):
                 try:
                     job_dict['result'] = json.loads(job_dict['result'])
                 except json.JSONDecodeError:
                     job_dict['result'] = None
             job_list.append(job_dict)
-        return job_list
+        
+        # 페이지네이션 정보 포함
+        return {
+            'jobs': job_list,
+            'pagination': {
+                'total': total,
+                'page': page,
+                'per_page': per_page,
+                'total_pages': (total + per_page - 1) // per_page
+            }
+        }

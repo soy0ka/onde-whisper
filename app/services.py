@@ -1,4 +1,7 @@
 # app/services.py
+import os
+os.environ['NUMBA_THREADING_LAYER'] = 'tbb'
+
 import threading
 import time
 import requests

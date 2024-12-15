@@ -73,7 +73,7 @@ def test_full_process():
 
     # 4. 모든 작업 목록 확인
     print("\n4. 전체 작업 목록 확인...")
-    jobs_response = requests.get('http://localhost:4729/jobs')
+    jobs_response = requests.get('http://localhost:4729/jobs?page=1&per_page=3')
     print(f"작업 목록: {jobs_response.json()}")
 
 if __name__ == "__main__":
