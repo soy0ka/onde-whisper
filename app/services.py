@@ -38,15 +38,22 @@ def transcribe_audio(speech_file, output_file, callback_url, model, job_id):
       except requests.exceptions.RequestException as e:
         print(f"Callback failed: {e}")
 
+    return result
+
   except Exception as e:
-    db.update_job_status(job_id, 'failed', error=str(e))
-    print(f"Transcription failed: {e}")
+    error_msg = str(e)
+    db.update_job_status(job_id, 'failed', error=error_msg)
+    print(f"Transcription failed: {error_msg}")
+    raise
 
 def process_job(speech_file, output_file, callback_url, model, job_id):
   try:
-    threading.Thread(
+    thread = threading.Thread(
       target=transcribe_audio, 
       args=(speech_file, output_file, callback_url, model, job_id)
-    ).start()
+    )
+    thread.start()
+    return {"status": "processing", "job_id": job_id}
   except Exception as e:
     db.update_job_status(job_id, 'failed', error=str(e))
+    raise

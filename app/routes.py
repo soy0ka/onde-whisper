@@ -92,11 +92,19 @@ def transcribe():
         job_id = str(uuid.uuid4())
         output_file = os.path.join(UPLOAD_FOLDER, f"{job_id}.txt")
 
-        # 작업 시작 시간과 함께 작업 저장
+        # 작업 저장 및 상태를 'processing'으로 설정
         db.save_job(job_id, file_id, model, callback_url, started_at=datetime.now())
+        db.update_job_status(job_id, 'processing')
         
-        # 작업 처리 시작
-        process_job(file['file_path'], output_file, callback_url, model, job_id)
+        try:
+            # 작업 처리 시작
+            result = process_job(file['file_path'], output_file, callback_url, model, job_id)
+            # 작업 완료 시 결과 저장
+            db.update_job_status(job_id, 'completed', result=result)
+        except Exception as e:
+            # 작업 실패 시 에러 저장
+            db.update_job_status(job_id, 'failed', error=str(e))
+            raise
 
         return jsonify({
             "job_id": job_id,
@@ -110,7 +118,6 @@ def transcribe():
 def get_job_status(job_id):
     job = db.get_job(job_id)
     
-    print(job)
     if not job:
         return jsonify({
             "status": "error",
