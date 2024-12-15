@@ -68,13 +68,13 @@ class Database:
         conn.commit()
         conn.close()
 
-    def save_job(self, job_id, file_id, model, callback_url):
+    def save_job(self, job_id, file_id, model, callback_url, started_at=None):
         conn = self.get_connection()
         c = conn.cursor()
         c.execute('''
-            INSERT INTO jobs (job_id, file_id, status, model, callback_url, created_at)
-            VALUES (?, ?, ?, ?, ?, ?)
-        ''', (job_id, file_id, 'pending', model, callback_url, datetime.now()))
+            INSERT INTO jobs (job_id, file_id, status, model, callback_url, created_at, started_at)
+            VALUES (?, ?, ?, ?, ?, ?, ?)
+        ''', (job_id, file_id, 'pending', model, callback_url, datetime.now(), started_at))
         conn.commit()
         conn.close()
 
@@ -94,8 +94,15 @@ class Database:
             updates['error'] = str(error)
 
         set_clause = ', '.join([f'{k} = ?' for k in updates.keys()])
-        values = list
+        values = list(updates.values())
+        values.append(job_id)
+
+        query = f'UPDATE jobs SET {set_clause} WHERE job_id = ?'
+        c.execute(query, values)
         
+        conn.commit()
+        conn.close()
+
     def get_job(self, job_id):
         conn = self.get_connection()
         c = conn.cursor()

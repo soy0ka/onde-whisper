@@ -39,20 +39,32 @@ def upload():
     if not os.path.exists(UPLOAD_FOLDER):
         os.makedirs(UPLOAD_FOLDER)
     
-    file_path = os.path.join(UPLOAD_FOLDER, f"{file_id}")
+    # 청크 파일 저장
+    chunk_path = os.path.join(UPLOAD_FOLDER, f"{file_id}.part{chunk_number}")
+    chunk.save(chunk_path)
     
+    # 마지막 청크인 경우 파일 병합
     if int(chunk_number) == int(total_chunks):
-        chunk.save(file_path)
-        db.save_file(file_id, chunk.filename, file_path)
+        merge_result = merge_chunks(file_id, total_chunks, UPLOAD_FOLDER)
+        
+        if merge_result["status"] == "error":
+            return jsonify({
+                "status": "error",
+                "message": merge_result["message"]
+            }), 400
+            
+        db.save_file(file_id, chunk.filename, merge_result["merged_file"])
         return jsonify({
             "status": "success",
             "fileId": file_id,
-            "message": "파일이 성공적으로 업로드되었습니다."
+            "message": "파일이 성공적으로 업로드되었습니다.",
+            "file_hash": merge_result["file_hash"]
         })
     
     return jsonify({
         "status": "success",
-        "fileId": file_id
+        "fileId": file_id,
+        "message": f"청크 {chunk_number}/{total_chunks} 업로드 완료"
     })
 
 @api.route('/transcribe', methods=['POST'])
@@ -76,10 +88,14 @@ def transcribe():
                 "message": "파일을 찾을 수 없습니다."
             }), 404
 
+        # job_id를 먼저 생성
         job_id = str(uuid.uuid4())
         output_file = os.path.join(UPLOAD_FOLDER, f"{job_id}.txt")
 
-        db.save_job(job_id, file_id, model, callback_url)
+        # 작업 시작 시간과 함께 작업 저장
+        db.save_job(job_id, file_id, model, callback_url, started_at=datetime.now())
+        
+        # 작업 처리 시작
         process_job(file['file_path'], output_file, callback_url, model, job_id)
 
         return jsonify({
@@ -109,12 +125,7 @@ def get_job_status(job_id):
 @api.route('/jobs', methods=['GET'])
 def get_all_jobs():
     jobs = db.get_all_jobs()
-    if not jobs: 
-        return jsonify({
-            "status": "error",
-            "message": "작업이 없습니다."
-        }), 404
     return jsonify({
         "status": "success",
-        "jobs": jobs
+        "jobs": jobs if jobs else []
     })
