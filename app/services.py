@@ -1,39 +1,36 @@
+# app/services.py
 import threading
 import time
 import requests
 import mlx_whisper
 from config.config import WHISPER_MODELS
+from app.database import Database
+
+db = Database()
 
 def transcribe_audio(speech_file, output_file, callback_url, model, job_id):
     try:
-        # 작업 상태를 processing으로 변경
-        from app.routes import jobs, JobStatus
-        jobs[job_id]["status"] = JobStatus.PROCESSING
-
+        db.update_job_status(job_id, 'processing')
+        
         start_time = time.time()
-
         text_result = mlx_whisper.transcribe(
             speech_file,
             path_or_hf_repo=WHISPER_MODELS[model],
             word_timestamps=True
         )
         text = text_result["text"]
-
         end_time = time.time()
-        execution_time = end_time - start_time
-
+        
         with open(output_file, "w", encoding="utf-8") as file:
             file.write(text)
 
         result = {
-            "executionTime": execution_time,
+            "executionTime": end_time - start_time,
             "outputFile": output_file,
             "text": text,
         }
 
-        # 작업 상태를 completed로 변경
-        jobs[job_id]["status"] = JobStatus.COMPLETED
-        jobs[job_id]["result"] = result
+        db.update_job_status(job_id, 'completed', result=result)
 
         if callback_url:
             try:
@@ -42,9 +39,7 @@ def transcribe_audio(speech_file, output_file, callback_url, model, job_id):
                 print(f"Callback failed: {e}")
 
     except Exception as e:
-        # 에러 발생 시 작업 상태를 failed로 변경
-        jobs[job_id]["status"] = JobStatus.FAILED
-        jobs[job_id]["error"] = str(e)
+        db.update_job_status(job_id, 'failed', error=str(e))
         print(f"Transcription failed: {e}")
 
 def process_job(speech_file, output_file, callback_url, model, job_id):

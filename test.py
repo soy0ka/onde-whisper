@@ -57,10 +57,10 @@ def test_full_process():
         status_response = requests.get(status_url)
         status_data = status_response.json()
         
-        print(f"상태 확인 {retry_count + 1}: {status_data.get('job_status', 'unknown')}")
+        print(f"상태 확인 {retry_count + 1}: {status_data.get('status', 'unknown')}")
         
         # 작업이 완료되었거나 실패한 경우
-        if status_data.get('job_status') in ['completed', 'failed']:
+        if status_data.get('status') in ['success', 'failed']:
             print("\n최종 결과:")
             print(status_data)
             break
